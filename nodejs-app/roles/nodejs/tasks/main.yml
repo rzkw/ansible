@@ -1,0 +1,10 @@
+---
+- name: Install Node.js (npm plus all its dependencies).
+  apt: 
+    name: npm 
+    state: present
+    update_cache: yes
+
+- name: Install forever module (to run our Node.js app).
+  npm: name=forever global=yes state=present
+  with_items: "{{ node_npm_modules  }}"
