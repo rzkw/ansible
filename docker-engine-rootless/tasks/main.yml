@@ -70,6 +70,7 @@
       - uidmap
     state: present
     update_cache: true
+  notify: Disable system-wide Docker
 
 - name: Run Rootless install script
   ansible.builtin.become: true
