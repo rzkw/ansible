@@ -1,0 +1,25 @@
+---
+- name: Install packages on server
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Update apt cache and install packages
+      ansible.builtin.apt:
+        name:
+          - git
+          - ansible
+          - ca-certificates
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: Ensure ansible is running
+      ansible.builtin.service:
+        name:
+          - git
+          - ansible
+          - ca-certificates
+        state: started
+        enabled: true
