@@ -1,0 +1,12 @@
+#!/bin/bash
+# MOTD disk usage warning — shows on SSH login if / exceeds 80%
+THRESHOLD=80
+USAGE=$(df / | awk 'NR==2 {gsub(/%/,""); print $5}')
+if [ "$USAGE" -ge "$THRESHOLD" ]; then
+    echo ""
+    echo "*******************************************************************"
+    echo "  WARNING: Root filesystem is at ${USAGE}% usage!"
+    echo "  Consider adding a block volume (up to 200GB Always Free limit)."
+    echo "*******************************************************************"
+    echo ""
+fi
