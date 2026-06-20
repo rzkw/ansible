@@ -1,0 +1,518 @@
+---
+- name: Provision OCI Devbox
+  hosts: oci-devbox
+  become: yes
+  vars:
+    tailscale_ip: "{{ ansible_default_ipv4.address }}"
+    ssh_allowed_ips:
+      - "100.64.0.0/10"
+      - "100.92.145.128"
+    docker_compose_version: "2.27.0"
+
+  tasks:
+    # ── Hostname ───────────────────────────────────────────
+    - name: Set hostname
+      hostname:
+        name: oci-devbox
+
+    # ── System Update ──────────────────────────────────────
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    # ── Package Installation ───────────────────────────────
+    - name: Install system packages
+      apt:
+        name:
+          - git
+          - python3
+          - python3-pip
+          - pipx
+          - nodejs
+          - npm
+          - tmux
+          - curl
+          - wget
+          - gpg
+          - ufw
+          - fail2ban
+          - auditd
+          - audispd-plugins
+          - unattended-upgrades
+          - software-properties-common
+          - ca-certificates
+        state: present
+
+    # ── GitHub CLI ─────────────────────────────────────────
+    - name: Add GitHub CLI GPG key
+      apt_key:
+        url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
+        state: present
+
+    - name: Add GitHub CLI repo
+      apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main"
+        state: present
+
+    - name: Install gh CLI
+      apt:
+        name: gh
+        state: present
+
+    # ── OCI CLI ────────────────────────────────────────────
+    - name: Install OCI CLI via pipx
+      pipx:
+        name: oci-cli
+        state: present
+      become_user: agent-walkllc
+      become: yes
+
+    # ── AWS CLI ────────────────────────────────────────────
+    - name: Download AWS CLI installer
+      get_url:
+        url: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+        dest: /tmp/awscliv2.zip
+
+    - name: Install AWS CLI
+      unarchive:
+        src: /tmp/awscliv2.zip
+        dest: /tmp
+        remote_src: yes
+      register: aws_extract
+
+    - name: Run AWS CLI installer
+      command: /tmp/aws/install --update
+      when: aws_extract.changed
+
+    # ── Terraform ──────────────────────────────────────────
+    - name: Add HashiCorp GPG key
+      apt_key:
+        url: https://apt.releases.hashicorp.com/gpg
+        state: present
+
+    - name: Add HashiCorp repo
+      apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com {{ ansible_distribution_release }} main"
+        state: present
+
+    - name: Install Terraform
+      apt:
+        name: terraform
+        state: present
+
+    # ── OpenCode ───────────────────────────────────────────
+    - name: Install OpenCode via npm globally
+      npm:
+        name: "@opencode/cli"
+        global: yes
+        state: present
+
+    # ── UFW Firewall ──────────────────────────────────────
+    - name: Reset UFW to defaults
+      ufw:
+        state: reset
+
+    - name: Set UFW default policies
+      ufw:
+        direction: "{{ item.dir }}"
+        policy: "{{ item.policy }}"
+      loop:
+        - { dir: incoming, policy: deny }
+        - { dir: outgoing, policy: allow }
+        - { dir: routed, policy: deny }
+
+    - name: Allow SSH from Tailscale IPs
+      ufw:
+        rule: allow
+        port: 22
+        proto: tcp
+        from_ip: "{{ item }}"
+      loop: "{{ ssh_allowed_ips }}"
+
+    - name: Allow all traffic on Tailscale interface
+      ufw:
+        rule: allow
+        interface: tailscale0
+        direction: "{{ item }}"
+      loop:
+        - in
+        - out
+
+    - name: Enable UFW logging medium
+      ufw:
+        logging: medium
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+
+    # ── Kernel Network Hardening ───────────────────────────
+    - name: Deploy sysctl hardening config
+      template:
+        src: 99-hardening.conf.j2
+        dest: /etc/sysctl.d/99-hardening.conf
+        mode: 0644
+
+    - name: Deploy IPv6 disable sysctl config
+      copy:
+        src: 99-disable-ipv6.conf
+        dest: /etc/sysctl.d/99-disable-ipv6.conf
+        mode: 0644
+
+    - name: Apply sysctl settings
+      command: sysctl --system
+
+    # ── SSH Hardening ──────────────────────────────────────
+    - name: Deploy SSH tailscale-only listen config
+      copy:
+        dest: /etc/ssh/sshd_config.d/tailscale-only.conf
+        content: |
+          # Set by cloud-init — do not edit directly
+          ListenAddress {{ tailscale_ip }}
+        mode: 0644
+
+    - name: Deploy SSH security config
+      copy:
+        dest: /etc/ssh/sshd_config.d/99-security.conf
+        content: |
+          LogLevel VERBOSE
+          LoginGraceTime 60
+          StrictModes yes
+          MaxAuthTries 4
+          MaxSessions 5
+          MaxStartups 10:30:60
+          PasswordAuthentication no
+          PermitEmptyPasswords no
+          KbdInteractiveAuthentication no
+          AllowAgentForwarding no
+          AllowTcpForwarding no
+          X11Forwarding no
+          ClientAliveInterval 300
+          ClientAliveCountMax 2
+        mode: 0644
+      notify: restart ssh
+
+    - name: Apply SSH client hardening
+      copy:
+        dest: /etc/ssh/ssh_config.d/99-hardening.conf
+        content: |
+          Host *
+            HashKnownHosts yes
+            GSSAPIAuthentication no
+            PasswordAuthentication no
+            PubkeyAuthentication yes
+            HostbasedAuthentication no
+            ForwardAgent no
+            ForwardX11 no
+            StrictHostKeyChecking accept-new
+            Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+            MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,umac-64-etm@openssh.com
+            KexAlgorithms curve25519-sha256@libssh.org,curve25519-sha256,diffie-hellman-group-exchange-sha256
+        mode: 0644
+
+    # ── PAM faillock ──────────────────────────────────────
+    - name: Configure PAM faillock
+      copy:
+        dest: /etc/security/faillock.conf
+        content: |
+          deny = 5
+          fail_interval = 900
+          unlock_time = 900
+          dir = /var/run/faillock
+          audit
+          silent
+        mode: 0644
+
+    - name: Configure PAM common-auth with faillock
+      copy:
+        dest: /etc/pam.d/common-auth
+        content: |
+          # managed by Ansible — do not edit
+          auth required pam_faillock.so preauth silent audit deny=5 unlock_time=900 fail_interval=900
+          auth [success=1 default=ignore] pam_unix.so nullok
+          auth [default=die] pam_faillock.so authfail audit deny=5 unlock_time=900 fail_interval=900
+          auth sufficient pam_faillock.so authsucc audit deny=5 unlock_time=900 fail_interval=900
+          auth requisite pam_deny.so
+          auth required pam_permit.so
+          auth optional pam_cap.so
+        mode: 0644
+
+    - name: Harden login.defs
+      copy:
+        dest: /etc/login.defs
+        content: |
+          MAIL_DIR        /var/mail
+          FAIL_DELAY      3
+          LOG_UNKFAIL_ENAB     yes
+          LOG_OK_LOGINS        no
+          SYSLOG_SU_ENAB       yes
+          SYSLOG_SG_ENAB       yes
+          FTMP_FILE   /var/log/btmp
+          SU_NAME     su
+          HUSHLOGIN_FILE  .hushlogin
+          ENV_SUPATH  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+          ENV_PATH    PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games
+          TTYGROUP    tty
+          TTYPERM     0600
+          ERASECHAR   0177
+          KILLCHAR    025
+          UMASK       027
+          PASS_MAX_DAYS   90
+          PASS_MIN_DAYS   7
+          PASS_MIN_LEN    12
+          PASS_WARN_AGE   14
+          UID_MIN         1000
+          UID_MAX         60000
+          SYS_UID_MIN     100
+          SYS_UID_MAX     999
+          GID_MIN         1000
+          GID_MAX         60000
+          SYS_GID_MIN     100
+          SYS_GID_MAX     999
+          LOGIN_RETRIES   3
+          LOGIN_TIMEOUT   60
+          CHFN_RESTRICT   rwh
+          DEFAULT_HOME    yes
+          USERGROUPS_ENAB     yes
+          ENCRYPT_METHOD  SHA512
+        mode: 0644
+
+    # ── fail2ban ───────────────────────────────────────────
+    - name: Deploy fail2ban jail config
+      template:
+        src: jail.local.j2
+        dest: /etc/fail2ban/jail.local
+        mode: 0644
+      notify: restart fail2ban
+
+    - name: Deploy UFW filter for fail2ban
+      copy:
+        dest: /etc/fail2ban/filter.d/ufw.conf
+        content: |
+          [Definition]
+          failregex = ^.*UFW BLOCK.* SRC=<HOST> (?!0\.0\.0\.0)
+          ignoreregex = ^.*UFW BLOCK.* SRC=0\.0\.0\.0.*DST=224\.0\.0\.\.
+        mode: 0644
+      notify: restart fail2ban
+
+    # ── auditd ─────────────────────────────────────────────
+    - name: Deploy auditd rules
+      template:
+        src: hardening.rules.j2
+        dest: /etc/audit/rules.d/hardening.rules
+        mode: 0640
+      notify: restart auditd
+
+    # ── Unattended Upgrades ────────────────────────────────
+    - name: Configure unattended-upgrades
+      copy:
+        dest: /etc/apt/apt.conf.d/50unattended-upgrades
+        content: |
+          Unattended-Upgrade::Allowed-Origins {
+              "${distro_id}:${distro_codename}";
+              "${distro_id}:${distro_codename}-security";
+              "${distro_id}ESMApps:${distro_codename}-apps-security";
+              "${distro_id}ESM:${distro_codename}-infra-security";
+              "${distro_id}:${distro_codename}-updates";
+          };
+          Unattended-Upgrade::Package-Blacklist {};
+          Unattended-Upgrade::DevRelease "auto";
+          Unattended-Upgrade::AutoFixInterruptedDpkg "true";
+          Unattended-Upgrade::MinimalSteps "true";
+          Unattended-Upgrade::Mail "";
+          Unattended-Upgrade::MailReport "only-on-error";
+          Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+          Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
+          Unattended-Upgrade::Remove-Unused-Dependencies "false";
+          Unattended-Upgrade::Automatic-Reboot "true";
+          Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
+          Unattended-Upgrade::Automatic-Reboot-Time "03:00";
+          Unattended-Upgrade::SyslogEnable "true";
+          Unattended-Upgrade::Verbose "false";
+          Unattended-Upgrade::Debug "false";
+        mode: 0644
+
+    - name: Configure apt periodic
+      copy:
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        content: |
+          APT::Periodic::Update-Package-Lists "2";
+          APT::Periodic::Unattended-Upgrade "1";
+        mode: 0644
+
+    # ── Grafana Alloy ──────────────────────────────────────
+    - name: Add Grafana GPG key
+      apt_key:
+        url: https://apt.grafana.com/gpg-full.key
+        state: present
+
+    - name: Add Grafana APT repo
+      apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main"
+        state: present
+
+    - name: Install Alloy
+      apt:
+        name: alloy
+        state: present
+        update_cache: yes
+
+    - name: Deploy Alloy config
+      template:
+        src: alloy-config.j2
+        dest: /etc/grafana-cloud/alloy-config.yaml
+        mode: 0644
+      notify: restart alloy
+
+    # ── Docker (rootless) ──────────────────────────────────
+    - name: Install Docker via convenience script
+      shell: >
+        curl -fsSL https://get.docker.com -o /tmp/get-docker.sh &&
+        sh /tmp/get-docker.sh
+      args:
+        creates: /usr/bin/docker
+
+    - name: Install rootless Docker components
+      apt:
+        name:
+          - uidmap
+          - dbus-user-session
+        state: present
+
+    - name: Enable lingering for agent-walkllc user
+      shell: loginctl enable-linger agent-walkllc
+
+    - name: Install rootless Docker
+      shell: >
+        dockerd-rootless-setuptool.sh install --skip-iptables
+      become_user: agent-walkllc
+      become: yes
+      args:
+        creates: /home/agent-walkllc/.config/systemd/user/docker.service
+
+    - name: Enable rootless Docker service
+      systemd:
+        name: docker
+        scope: user
+        enabled: yes
+        state: started
+      become_user: agent-walkllc
+      become: yes
+
+    # ── Tailscale Exit Node ────────────────────────────────
+    - name: Advertise as Tailscale exit node
+      shell: tailscale set --advertise-exit-node
+      changed_when: false
+
+    # ── Rsync Backup (systemd timer + service) ────────────
+    - name: Deploy rsync-backup script
+      template:
+        src: rsync-backup.sh.j2
+        dest: /usr/local/bin/rsync-backup.sh
+        mode: 0755
+
+    - name: Deploy rsync-backup systemd service
+      template:
+        src: rsync-backup.service.j2
+        dest: /etc/systemd/system/rsync-backup.service
+        mode: 0644
+
+    - name: Deploy rsync-backup systemd timer
+      template:
+        src: rsync-backup.timer.j2
+        dest: /etc/systemd/system/rsync-backup.timer
+        mode: 0644
+
+    - name: Enable and start rsync-backup timer
+      systemd:
+        name: rsync-backup.timer
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    # ── Healthchecks.io Instance Heartbeat ─────────────────
+    - name: Deploy healthcheck systemd service
+      copy:
+        dest: /etc/systemd/system/healthcheck.service
+        content: |
+          [Unit]
+          Description=Healthchecks.io instance heartbeat
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/curl -m 10 --retry 3 https://hc-ping.com/{{ healthchecks_instance_uuid }}
+        mode: 0644
+
+    - name: Deploy healthcheck systemd timer
+      copy:
+        dest: /etc/systemd/system/healthcheck.timer
+        content: |
+          [Unit]
+          Description=Run healthcheck every 15 minutes
+
+          [Timer]
+          OnCalendar=*:0/15
+          Persistent=true
+
+          [Install]
+          WantedBy=timers.target
+        mode: 0644
+
+    - name: Enable and start healthcheck timer
+      systemd:
+        name: healthcheck.timer
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    # ── MOTD Disk Warning ─────────────────────────────────
+    - name: Deploy disk usage MOTD warning
+      template:
+        src: 99-disk-warning.j2
+        dest: /etc/update-motd.d/99-disk-warning
+        mode: 0755
+
+    # ── SSH Lockdown (manual, after Tailscale SSH verified) ─
+    - name: Nuke sshd after Tailscale SSH is confirmed
+      tags: lockdown, never
+      block:
+        - name: Stop and disable sshd
+          systemd:
+            name: sshd
+            state: stopped
+            enabled: false
+            masked: true
+
+        - name: Remove openssh-server package
+          apt:
+            name: openssh-server
+            state: absent
+            purge: yes
+
+        - name: Deny SSH via UFW
+          ufw:
+            rule: deny
+            port: "22"
+            proto: tcp
+
+  handlers:
+    - name: restart ssh
+      systemd:
+        name: ssh
+        state: restarted
+
+    - name: restart fail2ban
+      systemd:
+        name: fail2ban
+        state: restarted
+
+    - name: restart auditd
+      systemd:
+        name: auditd
+        state: restarted
+
+    - name: restart alloy
+      systemd:
+        name: alloy
+        state: restarted

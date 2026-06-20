@@ -1,0 +1,18 @@
+#!/bin/bash
+set -e
+
+date=$(date +%Y-%m-%d)
+time=$(date +%T)
+# Configure this to your remote rsync destination (target machine pulls)
+backupdir="/var/backups/rsync"
+origin="{{ rsync_backup_sources }}"
+
+if [ "$EUID" -ne 0 ]; then
+  echo "Please run as root/use sudo"
+  exit 1
+fi
+
+mkdir -p "$backupdir/$date-$time"
+echo "Backing up to $backupdir/$date-$time"
+rsync -arvuz --delete --stats $origin "$backupdir/$date-$time"
+echo "Backup complete"

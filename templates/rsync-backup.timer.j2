@@ -1,0 +1,10 @@
+[Unit]
+Description="Run rsync backup daily at 02:00"
+
+[Timer]
+OnCalendar={{ rsync_backup_schedule }}
+Unit=rsync-backup.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,6 @@
+all:
+  hosts:
+    oci-devbox:
+      ansible_host: "{{ oci_devbox_tailscale_ip }}"
+      ansible_user: agent-walkllc
+      ansible_ssh_private_key_file: "{{ ssh_private_key_path }}"
