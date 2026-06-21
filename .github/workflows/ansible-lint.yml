@@ -1,0 +1,45 @@
+name: Ansible Lint
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  ansible-lint:
+    name: Ansible Lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2.19.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v7
+
+      - name: Run ansible-lint
+        uses: ansible/ansible-lint@v26.4.0
+        with:
+          setup_python: "true"
+          python_version: "3.14"
+
+  yamllint:
+    name: YAML Lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2.19.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v7
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Run yamllint
+        run: yamllint .
