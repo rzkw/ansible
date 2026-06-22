@@ -2,10 +2,6 @@
 # Tailscale
 tailscale_auth_key: "{{ vault_tailscale_auth_key }}"
 
-# Grafana Cloud Alloy
-alloy_remote_write_url: "{{ vault_alloy_remote_write_url }}"
-alloy_api_key: "{{ vault_alloy_api_key }}"
-
 # Healthchecks.io
 healthchecks_backup_uuid: "{{ vault_healthchecks_backup_uuid }}"
 healthchecks_instance_uuid: "{{ vault_healthchecks_instance_uuid }}"
