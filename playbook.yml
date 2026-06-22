@@ -7,7 +7,7 @@
     ssh_allowed_ips:
       - "100.64.0.0/10"
       - "100.92.145.128"
-    docker_compose_version: "2.27.0"
+
 
   tasks:
     # ── Hostname ───────────────────────────────────────────
@@ -37,8 +37,6 @@
           - gpg
           - ufw
           - fail2ban
-          - auditd
-          - audispd-plugins
           - unattended-upgrades
           - software-properties-common
           - ca-certificates
@@ -147,13 +145,7 @@
       ufw:
         state: enabled
 
-    # ── Kernel Network Hardening ───────────────────────────
-    - name: Deploy sysctl hardening config
-      template:
-        src: 99-hardening.conf.j2
-        dest: /etc/sysctl.d/99-hardening.conf
-        mode: 0644
-
+    # ── IPv6 Disable ────────────────────────────────────
     - name: Deploy IPv6 disable sysctl config
       copy:
         src: 99-disable-ipv6.conf
@@ -206,9 +198,6 @@
             ForwardAgent no
             ForwardX11 no
             StrictHostKeyChecking accept-new
-            Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
-            MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,umac-64-etm@openssh.com
-            KexAlgorithms curve25519-sha256@libssh.org,curve25519-sha256,diffie-hellman-group-exchange-sha256
         mode: 0644
 
     # ── Login.defs hardening ────────────────────────────
@@ -271,14 +260,6 @@
           ignoreregex = ^.*UFW BLOCK.* SRC=0\.0\.0\.0.*DST=224\.0\.0\.\.
         mode: 0644
       notify: restart fail2ban
-
-    # ── auditd ─────────────────────────────────────────────
-    - name: Deploy auditd rules
-      template:
-        src: hardening.rules.j2
-        dest: /etc/audit/rules.d/hardening.rules
-        mode: 0640
-      notify: restart auditd
 
     # ── Unattended Upgrades ────────────────────────────────
     - name: Configure unattended-upgrades
@@ -383,46 +364,11 @@
         state: started
         daemon_reload: yes
 
-    # ── Healthchecks.io Instance Heartbeat ─────────────────
-    - name: Deploy healthcheck systemd service
-      copy:
-        dest: /etc/systemd/system/healthcheck.service
-        content: |
-          [Unit]
-          Description=Healthchecks.io instance heartbeat
-
-          [Service]
-          Type=oneshot
-          ExecStart=/usr/bin/curl -m 10 --retry 3 https://hc-ping.com/{{ healthchecks_instance_uuid }}
-        mode: 0644
-
-    - name: Deploy healthcheck systemd timer
-      copy:
-        dest: /etc/systemd/system/healthcheck.timer
-        content: |
-          [Unit]
-          Description=Run healthcheck every 15 minutes
-
-          [Timer]
-          OnCalendar=*:0/15
-          Persistent=true
-
-          [Install]
-          WantedBy=timers.target
-        mode: 0644
-
-    - name: Enable and start healthcheck timer
-      systemd:
-        name: healthcheck.timer
-        enabled: yes
-        state: started
-        daemon_reload: yes
-
-    # ── MOTD Disk Warning ─────────────────────────────────
-    - name: Deploy disk usage MOTD warning
+    # ── MOTD Warnings ─────────────────────────────────
+    - name: Deploy MOTD warnings
       template:
-        src: 99-disk-warning.j2
-        dest: /etc/update-motd.d/99-disk-warning
+        src: 99-motd-warning.j2
+        dest: /etc/update-motd.d/99-motd-warning
         mode: 0755
 
   handlers:
@@ -436,7 +382,4 @@
         name: fail2ban
         state: restarted
 
-    - name: restart auditd
-      systemd:
-        name: auditd
-        state: restarted
+
