@@ -1,0 +1,14 @@
+#!/bin/bash
+msgs=()
+usage=$(df / | awk 'NR==2 {gsub(/%/,""); print $5}')
+if [ "$usage" -ge 80 ]; then
+    msgs+=("Root filesystem at ${usage}% usage — consider adding block volume")
+fi
+if systemctl is-failed rsync-backup.service &>/dev/null; then
+    msgs+=("rsync-backup.service has failed — check journalctl -u rsync-backup.service")
+fi
+if [ ${#msgs[@]} -gt 0 ]; then
+    echo "*******************************************************************"
+    for msg in "${msgs[@]}"; do echo "  WARNING: $msg"; done
+    echo "*******************************************************************"
+fi

@@ -2,10 +2,6 @@
 # Tailscale
 tailscale_auth_key: "{{ vault_tailscale_auth_key }}"
 
-# Healthchecks.io
-healthchecks_backup_uuid: "{{ vault_healthchecks_backup_uuid }}"
-healthchecks_instance_uuid: "{{ vault_healthchecks_instance_uuid }}"
-
 # Rsync backup
 rsync_backup_sources: "/etc /home /root /var /usr/local/bin /usr/local/sbin /srv /opt"
 rsync_backup_schedule: "*-*-* 02:00:00"

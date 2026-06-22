@@ -6,8 +6,6 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStartPre=-curl -m 10 --retry 5 https://hc-ping.com/{{ healthchecks_backup_uuid }}/start
 ExecStart=/usr/local/bin/rsync-backup.sh
-ExecStopPost=curl -m 10 --retry 5 https://hc-ping.com/{{ healthchecks_backup_uuid }}/${EXIT_STATUS}
 Restart=on-failure
 RestartSec=5
