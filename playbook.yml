@@ -13,7 +13,7 @@
     # ── Hostname ───────────────────────────────────────────
     - name: Set hostname
       hostname:
-        name: oci-devbox
+        name: dev-box
 
     # ── System Update ──────────────────────────────────────
     - name: Update apt cache
@@ -211,72 +211,48 @@
             KexAlgorithms curve25519-sha256@libssh.org,curve25519-sha256,diffie-hellman-group-exchange-sha256
         mode: 0644
 
-    # ── PAM faillock ──────────────────────────────────────
-    - name: Configure PAM faillock
-      copy:
-        dest: /etc/security/faillock.conf
-        content: |
-          deny = 5
-          fail_interval = 900
-          unlock_time = 900
-          dir = /var/run/faillock
-          audit
-          silent
-        mode: 0644
+    # ── Login.defs hardening ────────────────────────────
+    - name: Set FAIL_DELAY to 3
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^FAIL_DELAY'
+        line: 'FAIL_DELAY      3'
 
-    - name: Configure PAM common-auth with faillock
-      copy:
-        dest: /etc/pam.d/common-auth
-        content: |
-          # managed by Ansible — do not edit
-          auth required pam_faillock.so preauth silent audit deny=5 unlock_time=900 fail_interval=900
-          auth [success=1 default=ignore] pam_unix.so nullok
-          auth [default=die] pam_faillock.so authfail audit deny=5 unlock_time=900 fail_interval=900
-          auth sufficient pam_faillock.so authsucc audit deny=5 unlock_time=900 fail_interval=900
-          auth requisite pam_deny.so
-          auth required pam_permit.so
-          auth optional pam_cap.so
-        mode: 0644
+    - name: Set UMASK to 027
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^UMASK'
+        line: 'UMASK           027'
 
-    - name: Harden login.defs
-      copy:
-        dest: /etc/login.defs
-        content: |
-          MAIL_DIR        /var/mail
-          FAIL_DELAY      3
-          LOG_UNKFAIL_ENAB     yes
-          LOG_OK_LOGINS        no
-          SYSLOG_SU_ENAB       yes
-          SYSLOG_SG_ENAB       yes
-          FTMP_FILE   /var/log/btmp
-          SU_NAME     su
-          HUSHLOGIN_FILE  .hushlogin
-          ENV_SUPATH  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-          ENV_PATH    PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games
-          TTYGROUP    tty
-          TTYPERM     0600
-          ERASECHAR   0177
-          KILLCHAR    025
-          UMASK       027
-          PASS_MAX_DAYS   90
-          PASS_MIN_DAYS   7
-          PASS_MIN_LEN    12
-          PASS_WARN_AGE   14
-          UID_MIN         1000
-          UID_MAX         60000
-          SYS_UID_MIN     100
-          SYS_UID_MAX     999
-          GID_MIN         1000
-          GID_MAX         60000
-          SYS_GID_MIN     100
-          SYS_GID_MAX     999
-          LOGIN_RETRIES   3
-          LOGIN_TIMEOUT   60
-          CHFN_RESTRICT   rwh
-          DEFAULT_HOME    yes
-          USERGROUPS_ENAB     yes
-          ENCRYPT_METHOD  SHA512
-        mode: 0644
+    - name: Set PASS_MAX_DAYS to 90
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^PASS_MAX_DAYS'
+        line: 'PASS_MAX_DAYS   90'
+
+    - name: Set PASS_MIN_DAYS to 7
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^PASS_MIN_DAYS'
+        line: 'PASS_MIN_DAYS   7'
+
+    - name: Set PASS_MIN_LEN to 12
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^PASS_MIN_LEN'
+        line: 'PASS_MIN_LEN    12'
+
+    - name: Set PASS_WARN_AGE to 14
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^PASS_WARN_AGE'
+        line: 'PASS_WARN_AGE   14'
+
+    - name: Set LOGIN_RETRIES to 3
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^LOGIN_RETRIES'
+        line: 'LOGIN_RETRIES   3'
 
     # ── fail2ban ───────────────────────────────────────────
     - name: Deploy fail2ban jail config
@@ -340,30 +316,6 @@
           APT::Periodic::Update-Package-Lists "2";
           APT::Periodic::Unattended-Upgrade "1";
         mode: 0644
-
-    # ── Grafana Alloy ──────────────────────────────────────
-    - name: Add Grafana GPG key
-      apt_key:
-        url: https://apt.grafana.com/gpg-full.key
-        state: present
-
-    - name: Add Grafana APT repo
-      apt_repository:
-        repo: "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main"
-        state: present
-
-    - name: Install Alloy
-      apt:
-        name: alloy
-        state: present
-        update_cache: yes
-
-    - name: Deploy Alloy config
-      template:
-        src: alloy-config.j2
-        dest: /etc/grafana-cloud/alloy-config.yaml
-        mode: 0644
-      notify: restart alloy
 
     # ── Docker (rootless) ──────────────────────────────────
     - name: Install Docker via convenience script
@@ -473,29 +425,6 @@
         dest: /etc/update-motd.d/99-disk-warning
         mode: 0755
 
-    # ── SSH Lockdown (manual, after Tailscale SSH verified) ─
-    - name: Nuke sshd after Tailscale SSH is confirmed
-      tags: lockdown, never
-      block:
-        - name: Stop and disable sshd
-          systemd:
-            name: sshd
-            state: stopped
-            enabled: false
-            masked: true
-
-        - name: Remove openssh-server package
-          apt:
-            name: openssh-server
-            state: absent
-            purge: yes
-
-        - name: Deny SSH via UFW
-          ufw:
-            rule: deny
-            port: "22"
-            proto: tcp
-
   handlers:
     - name: restart ssh
       systemd:
@@ -510,9 +439,4 @@
     - name: restart auditd
       systemd:
         name: auditd
-        state: restarted
-
-    - name: restart alloy
-      systemd:
-        name: alloy
         state: restarted
