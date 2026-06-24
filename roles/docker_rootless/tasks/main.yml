@@ -1,0 +1,113 @@
+# SPDX-License-Identifier: MIT-0
+---
+# tasks file for docker_rootless
+
+# Remove conflicting packages per Docker's official Ubuntu install guide
+
+- name: Remove conflicting old packages
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - docker-compose
+      - docker-compose-v2
+      - docker-doc
+      - podman-docker
+    state: absent
+  when: ansible_os_family == "Debian"
+
+# Create service user, group, enable linger
+
+- name: Create service user
+  ansible.builtin.user:
+    name: "{{ service_user }}"
+    shell: /bin/bash
+    state: present
+  register: service_user_info
+
+- name: Create docker group
+  ansible.builtin.group:
+    name: docker
+    state: present
+
+- name: Enable linger for service user
+  ansible.builtin.command: "loginctl enable-linger {{ service_user }}"
+  args:
+    creates: "/var/lib/systemd/linger/{{ service_user }}"
+
+# Add Docker's GPG key, add repo, install packages
+
+- name: Install ca-certificates and curl
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+    state: present
+    update_cache: true
+
+- name: Create apt keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Get dpkg architecture for Docker repo
+  ansible.builtin.command: dpkg --print-architecture
+  register: dpkg_arch
+  changed_when: false
+  check_mode: false
+
+- name: Download Docker's official GPG key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: 'a+r'
+
+- name: Add Docker repo to apt sources
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/docker.sources
+    mode: '0644'
+    content: |
+      Types: deb
+      URIs: https://download.docker.com/linux/ubuntu
+      Suites: {{ ansible_distribution_release }}
+      Components: stable
+      Architectures: {{ dpkg_arch.stdout }}
+      Signed-By: /etc/apt/keyrings/docker.asc
+
+- name: Update apt cache after adding Docker repo
+  ansible.builtin.apt:
+    update_cache: true
+
+# Install Docker Engine packages and uidmap for rootless
+
+- name: Install Docker Engine packages
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+      - docker-ce-rootless-extras
+      - uidmap
+    state: present
+    update_cache: true
+  notify: Disable system-wide Docker
+
+- name: Run Rootless install script
+  become: true
+  become_user: "{{ service_user }}"
+  ansible.builtin.command:
+    cmd: "dockerd-rootless-setuptool.sh install"
+    creates: "{{ service_user_info.home }}/.local/share/docker"
+
+- name: Configure env variables in .bashrc
+  become: true
+  become_user: "{{ service_user }}"
+  ansible.builtin.blockinfile:
+    path: "{{ service_user_info.home }}/.bashrc"
+    marker: "# Ansible managed block Docker rootless"
+    block: |
+      export PATH=/usr/bin:$PATH
+      export DOCKER_HOST=unix:///run/user/{{ service_user_info.uid
+        }}/docker.sock

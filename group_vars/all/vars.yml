@@ -1,0 +1,10 @@
+---
+# non-sensitive data
+
+ansible_user: "{{ vault_ansible_user }}"
+ansible_port: 5678
+ansible_connection: ssh
+
+# sensitive data
+
+ansible_password: "{{ vault_ansible_password }}"
