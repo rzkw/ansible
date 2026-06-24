@@ -14,12 +14,3 @@
         update_cache: true
         cache_valid_time: 3600
       when: ansible_os_family == "Debian"
-
-    - name: Ensure ansible is running
-      ansible.builtin.service:
-        name:
-          - git
-          - ansible
-          - ca-certificates
-        state: started
-        enabled: true

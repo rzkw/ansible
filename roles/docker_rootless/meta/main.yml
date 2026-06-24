@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: MIT-0
+---
+galaxy_info:
+  author: homelab
+  description: Install Docker Engine in rootless mode on Ubuntu
+  license: MIT
+  min_ansible_version: "2.16"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - docker
+    - rootless
+    - container
+    - ubuntu
+
+dependencies: []

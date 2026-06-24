@@ -1,0 +1,6 @@
+---
+- name: Install Rootless Docker Engine
+  hosts: nodes
+  become: true
+  roles:
+    - docker_rootless
