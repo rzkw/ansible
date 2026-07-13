@@ -1,0 +1,109 @@
+ # ── System Update ──────────────────────────────────────
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+ # ── Package Installation ───────────────────────────────
+- name: Install system packages
+  ansible.builtin.apt:
+    name:
+      - git
+      - python3
+      - python3-pip
+      - pipx
+      - nodejs
+      - npm
+      - tmux
+      - curl
+      - wget
+      - gpg
+      - ufw
+      - fail2ban
+      - unattended-upgrades
+      - software-properties-common
+      - ca-certificates
+    state: present
+
+    # ── GitHub CLI ─────────────────────────────────────────
+- name: Add GitHub CLI GPG key
+  apt_key:
+    url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
+    state: present
+
+- name: Add GitHub CLI repo
+  apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main"
+    state: present
+
+- name: Install gh CLI
+  apt:
+    name: gh
+    state: present
+
+    # ── OCI CLI ────────────────────────────────────────────
+- name: Install OCI CLI via pipx
+  pipx:
+    name: oci-cli
+    state: present
+  become_user: ubuntu
+  become: true
+
+# ── Terraform ──────────────────────────────────────────
+- name: Add HashiCorp GPG key
+  apt_key:
+    url: https://apt.releases.hashicorp.com/gpg
+    state: present
+
+- name: Add HashiCorp repo
+  apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com {{ ansible_distribution_release }main"
+    state: present
+
+- name: Install Terraform
+  apt:
+    name: terraform
+    state: present
+
+# ── OpenCode ───────────────────────────────────────────
+- name: Install OpenCode via npm globally
+  npm:
+    name: "@opencode/cli"
+    global: yes
+    state: present
+
+  # ── Docker (rootless) ──────────────────────────────────
+- name: Install Docker via convenience script
+  shell: >
+    curl -fsSL https://get.docker.com -o /tmp/get-docker.sh &&
+    sh /tmp/get-docker.sh
+  args:
+    creates: /usr/bin/docker
+
+- name: Install rootless Docker components
+  apt:
+    name:
+      - uidmap
+      - dbus-user-session
+    state: present
+
+- name: Enable lingering for ubuntu user
+  shell: loginctl enable-linger ubuntu
+
+- name: Install rootless Docker
+  shell: >
+    dockerd-rootless-setuptool.sh install --skip-iptables
+  become_user: ubuntu
+  become: true
+  args:
+    creates: /home/ubuntu/.config/systemd/user/docker.service
+
+- name: Enable rootless Docker service
+  systemd:
+    name: docker
+    scope: user
+    enabled: yes
+    state: started
+  become_user: ubuntu
+  become: true
+

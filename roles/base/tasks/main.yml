@@ -1,0 +1,4 @@
+- name: add sec-ssh-key for rizky
+  ansible.posix.authorized_key:
+  user: rizky
+  key: "sk-ssh-ed25519@openssh.comAAAAGnNrLXNzaC1lZDI1NTE5QG9wZW5zc2guY29tAAAAIOsFnvsYS5kBFy1MpFHOQpL0IQSao8KRkmynissR79PvAAAAEnNzaDpkZXYtYm94LWJhY2t1cA== dev-box-backup"
