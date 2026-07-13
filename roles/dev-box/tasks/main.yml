@@ -1,10 +1,9 @@
- # ── System Update ──────────────────────────────────────
+---
 - name: Update apt cache
   ansible.builtin.apt:
-    update_cache: yes
+    update_cache: true
     cache_valid_time: 3600
 
- # ── Package Installation ───────────────────────────────
 - name: Install system packages
   ansible.builtin.apt:
     name:
@@ -15,95 +14,71 @@
       - nodejs
       - npm
       - tmux
-      - curl
       - wget
-      - gpg
       - ufw
       - fail2ban
-      - unattended-upgrades
-      - software-properties-common
-      - ca-certificates
     state: present
 
-    # ── GitHub CLI ─────────────────────────────────────────
-- name: Add GitHub CLI GPG key
-  apt_key:
+- name: Add github cli gpg key
+  ansible.builtin.apt_key:
     url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
     state: present
 
-- name: Add GitHub CLI repo
-  apt_repository:
+- name: Add github cli repo
+  ansible.builtin.apt_repository:
     repo: "deb [signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main"
     state: present
 
-- name: Install gh CLI
-  apt:
+- name: Install gh cli
+  ansible.builtin.apt:
     name: gh
     state: present
 
-    # ── OCI CLI ────────────────────────────────────────────
-- name: Install OCI CLI via pipx
-  pipx:
+- name: Install oci cli via pipx
+  community.general.pipx:
     name: oci-cli
     state: present
   become_user: ubuntu
   become: true
 
-# ── Terraform ──────────────────────────────────────────
-- name: Add HashiCorp GPG key
-  apt_key:
+- name: Add hashicorp gpg key
+  ansible.builtin.apt_key:
     url: https://apt.releases.hashicorp.com/gpg
     state: present
 
-- name: Add HashiCorp repo
-  apt_repository:
-    repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com {{ ansible_distribution_release }main"
+- name: Add hashicorp repo
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com {{ ansible_distribution_release }} main"
     state: present
 
-- name: Install Terraform
-  apt:
+- name: Install terraform
+  ansible.builtin.apt:
     name: terraform
     state: present
 
-# ── OpenCode ───────────────────────────────────────────
-- name: Install OpenCode via npm globally
-  npm:
+- name: Add tailscale gpg key
+  ansible.builtin.apt_key:
+    url: https://pkgs.tailscale.com/stable/ubuntu/{{ ansible_distribution_release }}.noarmor.gpg
+    state: present
+
+- name: Add tailscale repo
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/ubuntu {{ ansible_distribution_release }} main"
+    state: present
+
+- name: Install tailscale
+  ansible.builtin.apt:
+    name: tailscale
+    state: present
+
+- name: Install opencode via npm globally
+  community.general.npm:
     name: "@opencode/cli"
-    global: yes
+    global: true
     state: present
 
-  # ── Docker (rootless) ──────────────────────────────────
-- name: Install Docker via convenience script
-  shell: >
-    curl -fsSL https://get.docker.com -o /tmp/get-docker.sh &&
-    sh /tmp/get-docker.sh
-  args:
-    creates: /usr/bin/docker
-
-- name: Install rootless Docker components
-  apt:
-    name:
-      - uidmap
-      - dbus-user-session
-    state: present
-
-- name: Enable lingering for ubuntu user
-  shell: loginctl enable-linger ubuntu
-
-- name: Install rootless Docker
-  shell: >
-    dockerd-rootless-setuptool.sh install --skip-iptables
-  become_user: ubuntu
-  become: true
-  args:
-    creates: /home/ubuntu/.config/systemd/user/docker.service
-
-- name: Enable rootless Docker service
-  systemd:
-    name: docker
-    scope: user
-    enabled: yes
-    state: started
-  become_user: ubuntu
-  become: true
-
+- name: Docker rootless setup
+  ansible.builtin.include_role:
+    name: docker_rootless
+  vars:
+    service_user: ubuntu  # noqa: var-naming[no-role-prefix]

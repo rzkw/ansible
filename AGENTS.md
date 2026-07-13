@@ -63,6 +63,40 @@ ansible-lint .
 
 Must pass with 0 failures before committing.
 
+## Keep it simple
+
+> "Whenever you can, do things simply.
+>
+> Use advanced features only when necessary, and select the feature that best matches your use case. For example, you will probably not need vars, vars_files, vars_prompt and --extra-vars all at once, while also using an external inventory file.
+>
+> If something feels complicated, it probably is. Take the time to look for a simpler solution."
+
+Prefer fewer moving parts: inline vars over `vars_files`, `include_role` over indirection layers, one playbook over orchestrator playbooks.
+
+## Ansible MCP Server
+
+The Ansible Development Tools MCP server is connected. Use these tools for quality checks:
+
+| Tool | Use |
+|------|-----|
+| `ansible_ansible_lint` | Lint playbooks/roles. Run on every change. |
+| `ansible_ansible_content_best_practices` | Check alignment with Ansible conventions. Query by topic. |
+| `ansible_ade_environment_info` | Verify Python, Ansible, ADT, collections status. |
+| `ansible_ansible_navigator` | Run playbooks with smart environment detection. |
+| `ansible_zen_of_ansible` | Design philosophy reference. |
+
+### Lint workflow
+
+```sh
+ansible-lint .    # CLI fallback
+```
+
+Or via MCP: invoke `ansible_ansible_lint` with file path. Fail clean — 0 warnings before commit.
+
 ## Prerequisites
 
 - Ansible installed (collection installs via pip or system package)
+
+## Commit signing
+
+All commits must be signed with SSH key `~/.ssh/agent-gh-signing`. Git is configured globally (`gpg.format = ssh`, `user.signingkey = ~/.ssh/agent-gh-signing.pub`, `commit.gpgsign = true`). Verify with `git log --show-signature -1` before pushing.

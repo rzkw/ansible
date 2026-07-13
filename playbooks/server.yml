@@ -1,0 +1,42 @@
+---
+- hosts: localhost
+  connection: local
+  become: true
+  vars:
+    home_ip: "x.x.x.x"
+  vars_files:
+    - ../group_vars/all/cis.yml
+  pre_tasks:
+    - name: install ansible collections
+      ansible.builtin.command:
+        cmd: ansible-galaxy collection install -r {{ playbook_dir }}/../collections/requirements.yml
+      args:
+        creates: /root/.ansible/collections/ansible_collections/community/general
+    - name: clone cis hardening role
+      ansible.builtin.git:
+        repo: https://github.com/ansible-lockdown/UBUNTU24-CIS.git
+        dest: /tmp/UBUNTU24-CIS
+        version: main
+        depth: 1
+  tasks:
+    - name: cis hardening
+      ansible.builtin.include_role:
+        name: /tmp/UBUNTU24-CIS
+      vars:
+        ubtu24cis_rule_4_2_3: false
+    - name: base setup
+      ansible.builtin.include_role:
+        name: base
+    - name: dev box setup
+      ansible.builtin.include_role:
+        name: dev-box
+  post_tasks:
+    - name: enable ufw
+      community.general.ufw:
+        state: enabled
+    - name: restrict ssh to home ip
+      community.general.ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+        src: "{{ home_ip }}"

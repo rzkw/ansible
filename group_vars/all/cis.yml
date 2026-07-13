@@ -1,0 +1,12 @@
+---
+ubtu24cis_level_1: true
+ubtu24cis_level_2: false
+ubtu24cis_ipv6_required: false
+ubtu24cis_desktop_required: false
+ubtu24cis_disruption_high: false
+ubtu24cis_firewall_package: ufw
+ubtu24cis_sshd_permit_root_login: false
+ubtu24cis_sshd_password_auth: false
+ubtu24cis_ssh_allow_users: "{{ ansible_user }}"
+run_audit: false
+setup_audit: false
