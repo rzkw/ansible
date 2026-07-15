@@ -4,6 +4,17 @@
   become: true
   vars:
     home_ip: "x.x.x.x"
+    oci_config_dir: ""
+    opencode_config_dir: ""
+  vars_prompt:
+    - name: oci_config_dir
+      prompt: "Path to local OCI CLI config directory (~/.oci)"
+      default: "~/.oci"
+      private: false
+    - name: opencode_config_dir
+      prompt: "Path to local OpenCode config directory (~/.config/opencode)"
+      default: "~/.config/opencode"
+      private: false
   vars_files:
     - ../group_vars/all/cis.yml
   pre_tasks:
