@@ -77,6 +77,24 @@
     global: true
     state: present
 
+- name: Import OCI CLI config
+  ansible.builtin.copy:
+    src: "{{ oci_config_dir }}/"
+    dest: /home/ubuntu/.oci/
+    owner: ubuntu
+    group: ubuntu
+    mode: "0600"
+  when: oci_config_dir | length > 0
+
+- name: Import OpenCode config
+  ansible.builtin.copy:
+    src: "{{ opencode_config_dir }}/"
+    dest: /home/ubuntu/.config/opencode/
+    owner: ubuntu
+    group: ubuntu
+    mode: "0644"
+  when: opencode_config_dir | length > 0
+
 - name: Docker rootless setup
   ansible.builtin.include_role:
     name: docker_rootless
