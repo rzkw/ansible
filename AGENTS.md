@@ -93,6 +93,12 @@ ansible-lint .    # CLI fallback
 
 Or via MCP: invoke `ansible_ansible_lint` with file path. Fail clean — 0 warnings before commit.
 
+## Git Rules
+
+- **Never force push.** Add new commits only. `git push --force` and `--force-with-lease` are forbidden on any branch. If a PR review requires changes, make a new commit and push normally.
+- **Always rebase, never merge.** Keep a linear history. Use `git pull --rebase` to incorporate upstream changes. Never use `git merge` on feature branches.
+- **Rebase before every push.** Before pushing a branch, rebase it onto the latest `main` so it contains no merge commits and no conflicts with upstream.
+
 ## Prerequisites
 
 - Ansible installed (collection installs via pip or system package)
