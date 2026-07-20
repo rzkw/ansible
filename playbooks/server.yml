@@ -2,9 +2,7 @@
 - hosts: localhost
   connection: local
   become: true
-  vars:
-    oci_config_dir: "~/.oci"
-    opencode_config_dir: "~/.config/opencode"
+  vars: {}
   pre_tasks:
     - name: install ansible collections
       ansible.builtin.command:
