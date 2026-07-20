@@ -63,6 +63,11 @@ ansible-lint .
 
 Must pass with 0 failures before committing.
 
+## GitHub Workflow
+
+- Always `git pull --rebase` before committing and pushing to maintain linear history.
+- Never push commits without pulling first — keeps branches up to date.
+
 ## Keep it simple
 
 > "Whenever you can, do things simply.
