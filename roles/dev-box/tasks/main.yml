@@ -123,6 +123,14 @@
     group: ubuntu
     mode: "0644"
 
+- name: Write OpenCode global AGENTS.md
+  ansible.builtin.copy:
+    content: "{{ opencode_agents_md }}"
+    dest: /home/ubuntu/.config/opencode/AGENTS.md
+    owner: ubuntu
+    group: ubuntu
+    mode: "0644"
+
 - name: Docker rootless setup
   ansible.builtin.include_role:
     name: docker_rootless
