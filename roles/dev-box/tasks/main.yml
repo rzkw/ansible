@@ -83,25 +83,49 @@
     global: true
     state: present
 
-- name: Import OCI CLI config
+- name: Create OCI config directory
+  ansible.builtin.file:
+    path: /home/ubuntu/.oci
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: "0700"
+
+- name: Write OCI CLI config
   ansible.builtin.copy:
-    src: "{{ oci_config_dir }}/config"
+    content: "{{ oci_config }}"
     dest: /home/ubuntu/.oci/config
     owner: ubuntu
     group: ubuntu
     mode: "0600"
 
-- name: Import OCI CLI rc
+- name: Write OCI CLI key
   ansible.builtin.copy:
-    src: "{{ oci_config_dir }}/oci_cli_rc"
+    content: "{{ oci_key }}"
+    dest: /home/ubuntu/.oci/oci_key.pem
+    owner: ubuntu
+    group: ubuntu
+    mode: "0600"
+
+- name: Write OCI CLI rc
+  ansible.builtin.copy:
+    content: "{{ oci_cli_rc }}"
     dest: /home/ubuntu/.oci/oci_cli_rc
     owner: ubuntu
     group: ubuntu
     mode: "0600"
 
-- name: Import OpenCode config
+- name: Create OpenCode config directory
+  ansible.builtin.file:
+    path: /home/ubuntu/.config/opencode
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: "0755"
+
+- name: Write OpenCode config
   ansible.builtin.copy:
-    src: "{{ opencode_config_dir }}/opencode.jsonc"
+    content: "{{ opencode_config }}"
     dest: /home/ubuntu/.config/opencode/opencode.jsonc
     owner: ubuntu
     group: ubuntu
