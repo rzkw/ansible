@@ -99,14 +99,6 @@
     group: ubuntu
     mode: "0600"
 
-- name: Write OCI CLI key
-  ansible.builtin.copy:
-    content: "{{ oci_key }}"
-    dest: /home/ubuntu/.oci/oci_key.pem
-    owner: ubuntu
-    group: ubuntu
-    mode: "0600"
-
 - name: Write OCI CLI rc
   ansible.builtin.copy:
     content: "{{ oci_cli_rc }}"
