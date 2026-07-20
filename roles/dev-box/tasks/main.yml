@@ -77,6 +77,12 @@
   changed_when: false
   when: tailscale_auth_key | default("", true) | length > 0
 
+- name: Advertise as exit node
+  ansible.builtin.command:
+    cmd: tailscale set --advertise-exit-node --advertise-routes= --ipv6=false
+  changed_when: false
+  when: tailscale_auth_key | default("", true) | length > 0
+
 - name: Install opencode via npm globally
   community.general.npm:
     name: "@opencode/cli"
