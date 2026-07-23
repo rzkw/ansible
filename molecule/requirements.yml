@@ -2,4 +2,3 @@
 collections:
   - name: containers.podman
     version: ">=1.10.0"
-
