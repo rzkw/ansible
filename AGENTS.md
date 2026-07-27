@@ -63,6 +63,11 @@ ansible-lint .
 
 Must pass with 0 failures before committing.
 
+## GitHub Workflow
+
+- Always `git pull --rebase` before committing and pushing to maintain linear history.
+- Never push commits without pulling first — keeps branches up to date.
+
 ## Keep it simple
 
 > "Whenever you can, do things simply.
@@ -96,6 +101,12 @@ Or via MCP: invoke `ansible_ansible_lint` with file path. Fail clean — 0 warni
 ## Prerequisites
 
 - Ansible installed (collection installs via pip or system package)
+
+## Git Rules
+
+- **Never force push.** `git push --force` and `--force-with-lease` are forbidden on any branch. Add new commits only.
+- **Always rebase, never merge.** Keep a linear history. Use `git pull --rebase` to incorporate upstream changes.
+- **Rebase before every push.** Rebasing onto the target branch before pushing avoids merge conflicts.
 
 ## Commit signing
 

@@ -1,7 +1,4 @@
 ---
-# Tailscale
-tailscale_auth_key: "{{ vault_tailscale_auth_key }}"
-
 # Rsync backup
 rsync_backup_sources: "/etc /home /root /var /usr/local/bin /usr/local/sbin /srv /opt"
 rsync_backup_schedule: "*-*-* 02:00:00"

@@ -1,0 +1,10 @@
+---
+all:
+  hosts:
+    oci-devbox:
+      ansible_host: oci-devbox
+      container_image: dockerhub.io/ubuntu:jammy-20260627
+      container_command: /sbin/init
+      container_privileged: false
+  vars:
+    user: ubuntu
