@@ -71,11 +71,18 @@
     name: tailscale
     state: present
 
+- name: Read tailscale auth key from OCI metadata
+  ansible.builtin.uri:
+    url: http://169.254.169.254/opc/v1/instance/metadata/tailscale_auth_key
+    return_content: true
+  register: ts_meta
+  # ponytail: only works on OCI instances, fails gracefully elsewhere
+  ignore_errors: true
+
 - name: Connect to tailscale
   ansible.builtin.command:
-    cmd: tailscale up --ssh --authkey {{ tailscale_auth_key }}
-  changed_when: false
-  when: tailscale_auth_key | default("", true) | length > 0
+    cmd: tailscale up --ssh --authkey {{ ts_meta.content }}
+  when: ts_meta.content | default("", true) | length > 0
 
 - name: Install opencode via npm globally
   community.general.npm:
