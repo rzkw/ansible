@@ -59,7 +59,7 @@ Run: `systemctl --user start docker` (verify socket at `~/.docker/run/docker.soc
 
 Run: `ansible-lint .` — record current failures.
 
-## Task 3: TDD red — write the container test for `server.yml`
+## Task 3: Container test for `server.yml` (molecule)
 
 **Files:**
 - Create: `playbooks/local-test.yml` (gitignored stub vars)
@@ -161,11 +161,6 @@ scenario:
         that: "'tailscale0' in ufw_status.stdout"
 ```
 
-- [ ] **Step 4: Run the test to see it fail (red)**
-
-Run: `molecule converge`
-Expected: FAIL — playbook pinned to `localhost`, `home_ip` undefined, CIS hardening runs.
-
 ## Task 4: `server.yml` — comment out CIS hardening
 
 **Files:**
@@ -244,7 +239,7 @@ Expected: FAIL — playbook pinned to `localhost`, `home_ip` undefined, CIS hard
   when: not skip_docker_rootless | default(false)
 ```
 
-## Task 7: TDD green — run the test
+## Task 7: Run the molecule test
 
 - [ ] **Step 1: Run the full molecule sequence**
 
