@@ -68,6 +68,13 @@ Must pass with 0 failures before committing.
 - Always `git pull --rebase` before committing and pushing to maintain linear history.
 - Never push commits without pulling first — keeps branches up to date.
 
+## Plan approval & references
+
+- Never implement major plans without approval from the repo admin/code owner.
+- Major changes require the plan to be submitted for PR review before any implementation.
+- All plans and reports must include a References section citing sources for every design decision (libraries, services, runtime behavior, security controls).
+- Acceptable sources: official product documentation, personal blogs from engineers/devs/sysadmins, and product engineering blogs. Academic papers are never acceptable.
+
 ## Keep it simple
 
 > "Whenever you can, do things simply.
