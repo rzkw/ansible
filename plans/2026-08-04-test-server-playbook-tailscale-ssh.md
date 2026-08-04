@@ -297,7 +297,6 @@ gh pr create --title "Test server playbook + tailscale-only SSH" --body "See pla
 - Tailscale, "Use ufw to lock down an Ubuntu server" — https://tailscale.com/docs/how-to/secure-ubuntu-server-with-ufw
 - Tailscale, "Tailscale SSH" — https://tailscale.com/docs/features/tailscale-ssh
 - Tailscale issue #18696 — tailscaled runtime behavior; SSH bypasses kernel firewall — https://github.com/tailscale/tailscale/issues/18696
-- engineered.at, "Restrict external SSH access using Tailscale and UFW" — https://engineered.at/articles/restrict-external-ssh-access-using-tailscale-and-ufw-in-ubuntu
 - supun.io, "Restrict external SSH access using Tailscale and UFW" — https://supun.io/tailscale-ssh-restrict
 - Ansible, `community.general.ufw` module (interface/direction params) — https://docs.ansible.com/projects/ansible/latest/collections/community/general/ufw_module.html
 - Molecule docs, "Test complete playbooks" (converge via `import_playbook`) — https://docs.ansible.com/projects/molecule/configuration/
