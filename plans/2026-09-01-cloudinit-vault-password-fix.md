@@ -195,9 +195,15 @@ echo "your-vault-password" > /root/.vault_pass
 ansible-pull --url=https://github.com/rzkw/ansible.git playbooks/server.yml --vault-password-file=/root/.vault_pass
 ```
 
+## Manual Step Required
+
+Remove `vault_home_ip` from `group_vars/all/vault.yml` (gitignored, can't edit from here):
+```bash
+ansible-vault edit group_vars/all/vault.yml --vault-password-file <your-vault-pass-file>
+```
+
 ## Out of Scope
 
 - Root `playbook.yml` — unchanged
 - CI/CD changes
 - Other vault variables (`ansible_password`, `oci_config`, etc.) — still needed for roles
-- `vm` host pattern warning — cosmetic, from `ansible-pull` clone path, does not affect execution
