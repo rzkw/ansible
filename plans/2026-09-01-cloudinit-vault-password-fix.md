@@ -95,8 +95,6 @@ After:
 ```ini
 [local]
 localhost
-
-[nodes]
 ```
 
 ### 3. `ansible/group_vars/all/vars.yml`
@@ -201,6 +199,5 @@ ansible-pull --url=https://github.com/rzkw/ansible.git playbooks/server.yml --va
 
 - Root `playbook.yml` — unchanged
 - CI/CD changes
-- Removing `vault_home_ip` from vault file (no longer referenced, harmless)
 - Other vault variables (`ansible_password`, `oci_config`, etc.) — still needed for roles
 - `vm` host pattern warning — cosmetic, from `ansible-pull` clone path, does not affect execution
