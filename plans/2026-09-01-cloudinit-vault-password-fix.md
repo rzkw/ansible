@@ -1,4 +1,4 @@
-# Fix Cloud-Init Provisioning: Pass Vault Password via OCI Metadata
+# Fix Cloud-Init Provisioning
 
 **Date:** 2026-09-01
 **Repos:** `rzkw/ansible`, `rzkw/oci-cloudinfra`
@@ -6,43 +6,107 @@
 
 ## Problem
 
-`ansible-pull` fails during cloud-init because `playbooks/server.yml` uses vault-encrypted variables (`home_ip`, `ansible_password`, `oci_config`, etc.) but `ansible-pull` runs without vault access. Error at line 31 (`community.general.ufw`) — the `home_ip` variable is undefined.
+`ansible-pull` fails during cloud-init with two issues:
 
+**1. Collection not installed:**
 ```
+ERROR! couldn't resolve module/action 'community.general.ufw'. This often indicates a misspelling,
+missing collection, or incorrect module path.
+```
+
+The `pre_tasks` collection install has a `creates` check that matches a stale directory, causing the install to be skipped. Full error output:
+```
+[WARNING]: Could not match supplied host pattern, ignoring: vm
+localhost | CHANGED => {
+    "after": "bf9e62e0416604d67b6e28dc3185d05dc2b48c6f",
+    "before": null,
+    "changed": true
+}
+[WARNING]: Could not match supplied host pattern, ignoring: vm
+ERROR! couldn't resolve module/action 'community.general.ufw'.
 The error appears to be in '/root/.ansible/pull/vm/playbooks/server.yml': line 31, column 7, but may
+be elsewhere in the file depending on the exact syntax problem.
 ```
+
+**2. Vault variables undefined:** `ansible-pull` runs without vault access, so `home_ip`, `ansible_password`, `oci_config`, etc. are undefined.
+
+**3. `vm` host pattern warning:** `hosts.ini` is empty, `ansible-pull` clones to `/root/.ansible/pull/vm/` and may be checking that path as a host pattern.
 
 ## Solution
 
-Pass the vault password through OCI instance metadata so `ansible-pull` can decrypt vault variables. Also remove the home IP SSH restriction (no static home IP available).
-
-## Design Decisions
-
-- **Vault password in OCI metadata** — same pattern already used for `tailscale_auth_key`. Metadata is encrypted at rest in OCI.
-- **`bootcmd` for vault file creation** — runs before `ansible` module in cloud-init final stage.
-- **Remove UFW home IP rule** — no static home IP. UFW stays enabled, SSH open to all.
-- **Hardcode user-data path** — only one `user-data.yaml` exists, no need for variable.
+1. Simplify collection install (remove `creates` check)
+2. Rewrite `hosts.ini` to localhost only
+3. Pass vault password via OCI instance metadata
+4. Remove home IP SSH restriction (no static home IP)
 
 ## File Changes
+
+### `rzkw/ansible` — 3 files
+
+| File | Action | Details |
+|------|--------|---------|
+| `playbooks/server.yml` | Edit | Simplify collection install, remove UFW home IP task |
+| `hosts.ini` | Edit | Rewrite to localhost only |
+| `group_vars/all/vars.yml` | Edit | Remove `home_ip` |
 
 ### `rzkw/oci-cloudinfra` — 3 files
 
 | File | Action | Details |
 |------|--------|---------|
-| `user-data.yaml` | Edit | Add `bootcmd` to create vault password file from metadata, add `pull_args` |
-| `terraform/instances/main.tf` | Edit | Simplify metadata (remove conditionals), add `vault_password` |
-| `terraform/instances/variables.tf` | Edit | Remove `user_data_path`, add `vault_password` variable |
-
-### `rzkw/ansible` — 2 files
-
-| File | Action | Details |
-|------|--------|---------|
-| `playbooks/server.yml` | Edit | Remove `restrict ssh to home ip` task (lines 34-39) |
-| `group_vars/all/vars.yml` | Edit | Remove `home_ip: "{{ vault_home_ip }}"` |
+| `user-data.yaml` | Edit | Add `bootcmd` + `pull_args` for vault password |
+| `terraform/instances/main.tf` | Edit | Simplify metadata, add `vault_password` |
+| `terraform/instances/variables.tf` | Edit | Remove `user_data_path`, add `vault_password` |
 
 ## Detailed Changes
 
-### 1. `oci-cloudinfra/user-data.yaml`
+### 1. `ansible/playbooks/server.yml`
+
+**Collection install** — remove `creates` check, simplify path:
+```yaml
+- name: install ansible collections
+  ansible.builtin.command:
+    cmd: ansible-galaxy collection install -r collections/requirements.yml
+```
+
+**Remove UFW home IP task** — delete lines 34-39:
+```yaml
+    - name: restrict ssh to home ip
+      community.general.ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+        src: "{{ home_ip }}"
+```
+
+Keep `enable ufw` task (lines 31-33).
+
+### 2. `ansible/hosts.ini`
+
+Before:
+```ini
+[local]
+# fill in IP address after provisioning
+
+[nodes]
+# fill in IP addresses after provisioning
+```
+
+After:
+```ini
+[local]
+localhost
+
+[nodes]
+```
+
+### 3. `ansible/group_vars/all/vars.yml`
+
+Remove:
+```yaml
+home_ip: "{{ vault_home_ip }}"
+```
+
+### 4. `oci-cloudinfra/user-data.yaml`
 
 ```yaml
 #cloud-config
@@ -66,7 +130,7 @@ ansible:
 
 **Why `169.254.169.254`?** OCI instance metadata service endpoint. Available on every OCI instance at link-local address. Same pattern used in `roles/dev-box/tasks/main.yml:76` for `tailscale_auth_key`.
 
-### 2. `oci-cloudinfra/terraform/instances/main.tf`
+### 5. `oci-cloudinfra/terraform/instances/main.tf`
 
 Before:
 ```hcl
@@ -87,10 +151,7 @@ metadata = {
 }
 ```
 
-**Why `base64encode`?** OCI API requires `user_data` to be base64-encoded in instance metadata.
-**Why `${path.module}/../../user-data.yaml`?** `path.module` resolves to `terraform/instances/`. Two levels up is the project root where `user-data.yaml` lives.
-
-### 3. `oci-cloudinfra/terraform/instances/variables.tf`
+### 6. `oci-cloudinfra/terraform/instances/variables.tf`
 
 Remove:
 ```hcl
@@ -108,27 +169,6 @@ variable "vault_password" {
   type        = string
   sensitive   = true
 }
-```
-
-### 4. `ansible/playbooks/server.yml`
-
-Remove lines 34-39:
-```yaml
-    - name: restrict ssh to home ip
-      community.general.ufw:
-        rule: allow
-        port: "22"
-        proto: tcp
-        src: "{{ home_ip }}"
-```
-
-Keep `enable ufw` task (lines 31-33).
-
-### 5. `ansible/group_vars/all/vars.yml`
-
-Remove:
-```yaml
-home_ip: "{{ vault_home_ip }}"
 ```
 
 ## Execution Order at Boot
@@ -163,3 +203,4 @@ ansible-pull --url=https://github.com/rzkw/ansible.git playbooks/server.yml --va
 - CI/CD changes
 - Removing `vault_home_ip` from vault file (no longer referenced, harmless)
 - Other vault variables (`ansible_password`, `oci_config`, etc.) — still needed for roles
+- `vm` host pattern warning — cosmetic, from `ansible-pull` clone path, does not affect execution
