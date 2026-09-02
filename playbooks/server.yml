@@ -6,9 +6,7 @@
   pre_tasks:
     - name: install ansible collections
       ansible.builtin.command:
-        cmd: ansible-galaxy collection install -r {{ playbook_dir }}/../collections/requirements.yml
-      args:
-        creates: /root/.ansible/collections/ansible_collections/community/general
+        cmd: ansible-galaxy collection install -r collections/requirements.yml
     - name: clone cis hardening role
       ansible.builtin.git:
         repo: https://github.com/ansible-lockdown/UBUNTU24-CIS.git
@@ -31,9 +29,3 @@
     - name: enable ufw
       community.general.ufw:
         state: enabled
-    - name: restrict ssh to home ip
-      community.general.ufw:
-        rule: allow
-        port: "22"
-        proto: tcp
-        src: "{{ home_ip }}"
