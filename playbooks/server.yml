@@ -4,11 +4,6 @@
   become: true
   vars: {}
   pre_tasks:
-    - name: install ansible collections
-      ansible.builtin.command:
-        cmd: ansible-galaxy collection install -r {{ playbook_dir }}/../collections/requirements.yml
-      args:
-        creates: /root/.ansible/collections/ansible_collections/community/general
     - name: clone cis hardening role
       ansible.builtin.git:
         repo: https://github.com/ansible-lockdown/UBUNTU24-CIS.git
