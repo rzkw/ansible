@@ -1,10 +1,12 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "ansible": {
-      "type": "local",
-      "command": ["npx", "-y", "@ansible/ansible-mcp-server", "--stdio"],
-      "enabled": true
+    "servers": {
+      "ansible": {
+        "type": "local",
+        "command": ["npx", "-y", "@ansible/ansible-mcp-server", "--stdio"],
+        "disabled": false
+      }
     }
   }
 }
