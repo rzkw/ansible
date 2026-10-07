@@ -78,6 +78,8 @@ Must pass with 0 failures before committing.
 
 Prefer fewer moving parts: inline vars over `vars_files`, `include_role` over indirection layers, one playbook over orchestrator playbooks.
 
+When suggesting solutions, problem solving, or implementing changes — always strive for the simplest possible solution that works. Avoid overengineering, overcomplicating, building unnecessarily difficult solutions.
+
 ## Ansible MCP Server
 
 The Ansible Development Tools MCP server is connected. Use these tools for quality checks:
