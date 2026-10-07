@@ -5,6 +5,14 @@
       "type": "local",
       "command": ["npx", "-y", "@ansible/ansible-mcp-server", "--stdio"],
       "enabled": true
+    },
+    "ixlabs": {
+      "type": "remote",
+      "url": "https://labs.iximiuz.com/mcp",
+      "enabled": true,
+      "headers": {
+        "Authorization": "Bearer {env:IXIMIUZ_TOKEN}"
+      }
     }
   }
 }
