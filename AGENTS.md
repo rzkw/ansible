@@ -1,5 +1,17 @@
 # AGENTS.md — Ansible homelab config
 
+## Keep it simple
+
+> "Whenever you can, do things simply.
+>
+> Use advanced features only when necessary, and select the feature that best matches your use case. For example, you will probably not need vars, vars_files, vars_prompt and --extra-vars all at once, while also using an external inventory file.
+>
+> If something feels complicated, it probably is. Take the time to look for a simpler solution."
+
+Prefer fewer moving parts: inline vars over `vars_files`, `include_role` over indirection layers, one playbook over orchestrator playbooks.
+
+When suggesting solutions, problem solving, or implementing changes — always strive for the simplest possible solution that works. Avoid overengineering, overcomplicating, building unnecessarily difficult solutions.
+
 ## Structure
 
 Standard Ansible layout with a single inventory and roles under `roles/`.
@@ -67,18 +79,6 @@ Must pass with 0 failures before committing.
 
 - Always `git pull --rebase` before committing and pushing to maintain linear history.
 - Never push commits without pulling first — keeps branches up to date.
-
-## Keep it simple
-
-> "Whenever you can, do things simply.
->
-> Use advanced features only when necessary, and select the feature that best matches your use case. For example, you will probably not need vars, vars_files, vars_prompt and --extra-vars all at once, while also using an external inventory file.
->
-> If something feels complicated, it probably is. Take the time to look for a simpler solution."
-
-Prefer fewer moving parts: inline vars over `vars_files`, `include_role` over indirection layers, one playbook over orchestrator playbooks.
-
-When suggesting solutions, problem solving, or implementing changes — always strive for the simplest possible solution that works. Avoid overengineering, overcomplicating, building unnecessarily difficult solutions.
 
 ## Ansible MCP Server
 
