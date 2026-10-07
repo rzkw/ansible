@@ -1,34 +1,100 @@
 ---
-- hosts: localhost
+- name: Provision OCI dev box
+  hosts: localhost
   connection: local
   become: true
-  vars: {}
+  vars:
+    dev_subnet_cidr: 172.16.0.0/24
   pre_tasks:
-    - name: clone cis hardening role
+    - name: Clone pinned CIS hardening role
       ansible.builtin.git:
         repo: https://github.com/ansible-lockdown/UBUNTU24-CIS.git
         dest: /tmp/UBUNTU24-CIS
-        version: main
+        version: 1.7.0
         depth: 1
+      tags: [always]
+    - name: Ensure backup and agent SSH accounts exist
+      ansible.builtin.user:
+        name: "{{ item }}"
+        state: present
+        create_home: true
+        shell: /bin/bash
+      loop:
+        - rizky
+        - agent-walkllc
+      tags: [always]
+    - name: Read agent SSH public key from OCI metadata
+      ansible.builtin.uri:
+        url: http://169.254.169.254/opc/v2/instance/metadata/agent_ssh_public_key
+        headers:
+          Authorization: Bearer Oracle
+        return_content: true
+        status_code: 200
+      register: agent_ssh_key
+      failed_when: false
+      no_log: true
+      tags: [always]
+    - name: Require agent SSH public key
+      ansible.builtin.assert:
+        that:
+          - agent_ssh_key.status | default(0) == 200
+          - agent_ssh_key.content | default("", true) | trim | length > 0
+        fail_msg: OCI metadata must provide agent_ssh_public_key.
+      tags: [always]
+    - name: Add SSH key for agent-walkllc
+      ansible.posix.authorized_key:
+        user: agent-walkllc
+        key: "{{ agent_ssh_key.content }}"
+        state: present
+      no_log: true
+      tags: [always]
   tasks:
-    - name: cis hardening
-      ansible.builtin.include_role:
-        name: /tmp/UBUNTU24-CIS
-      vars:
-        ubtu24cis_rule_4_2_3: false
-    - name: base setup
+    - name: Apply base setup
       ansible.builtin.include_role:
         name: base
-    - name: dev box setup
+        apply:
+          tags: [level1-server]
+      tags: [level1-server]
+    - name: Apply dev box setup
       ansible.builtin.include_role:
-        name: dev-box
-  post_tasks:
-    - name: enable ufw
+        name: dev_box
+        apply:
+          tags: [level1-server]
+      tags: [level1-server]
+    - name: Set UFW default inbound policy to deny
       community.general.ufw:
-        state: enabled
-    - name: restrict ssh to home ip
+        direction: incoming
+        default: deny
+      tags: [level1-server]
+    - name: Allow SSH from the Bastion subnet
       community.general.ufw:
         rule: allow
         port: "22"
         proto: tcp
-        src: "{{ home_ip }}"
+        src: "{{ dev_subnet_cidr }}"
+      tags: [level1-server]
+    - name: Allow SSH over Tailscale
+      community.general.ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+        interface: tailscale0
+        direction: in
+      tags: [level1-server]
+    - name: Allow Tailscale WireGuard traffic
+      community.general.ufw:
+        rule: allow
+        port: "41641"
+        proto: udp
+      tags: [level1-server]
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
+      tags: [level1-server]
+    - name: Apply Ubuntu 24 CIS Level 1 Server hardening
+      ansible.builtin.include_role:
+        name: /tmp/UBUNTU24-CIS # noqa role-name[path]
+      vars:
+        ubtu24cis_playbook_user: root
+        skip_reboot: true
+      tags: [always]

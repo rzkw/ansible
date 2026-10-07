@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-01
 **Repos:** `rzkw/ansible`, `rzkw/oci-cloudinfra`
-**Status:** Pending approval
+**Status:** Superseded by the [approved Tailscale-ready OCI instance plan](https://github.com/rzkw/oci-cloudinfra/blob/main/plans/2026-10-07-tailscale-direct-instance.md).
 
 ## Problem
 

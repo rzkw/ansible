@@ -1,6 +1,6 @@
 ---
-- name: ping module Playbook
+- name: Ping module playbook
   hosts: all
   tasks:
-    - name: test connection
+    - name: Test connection
       ansible.builtin.ping:

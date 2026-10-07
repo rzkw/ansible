@@ -19,10 +19,10 @@
 
 - name: Create service user
   ansible.builtin.user:
-    name: "{{ service_user }}"
+    name: "{{ docker_rootless_service_user }}"
     shell: /bin/bash
     state: present
-  register: service_user_info
+  register: docker_rootless_service_user_info
 
 - name: Create docker group
   ansible.builtin.group:
@@ -30,9 +30,9 @@
     state: present
 
 - name: Enable linger for service user
-  ansible.builtin.command: "loginctl enable-linger {{ service_user }}"
+  ansible.builtin.command: "loginctl enable-linger {{ docker_rootless_service_user }}"
   args:
-    creates: "/var/lib/systemd/linger/{{ service_user }}"
+    creates: "/var/lib/systemd/linger/{{ docker_rootless_service_user }}"
 
 # Add Docker's GPG key, add repo, install packages
 
@@ -52,7 +52,7 @@
 
 - name: Get dpkg architecture for Docker repo
   ansible.builtin.command: dpkg --print-architecture
-  register: dpkg_arch
+  register: docker_rootless_dpkg_arch
   changed_when: false
   check_mode: false
 
@@ -71,7 +71,7 @@
       URIs: https://download.docker.com/linux/ubuntu
       Suites: {{ ansible_distribution_release }}
       Components: stable
-      Architectures: {{ dpkg_arch.stdout }}
+      Architectures: {{ docker_rootless_dpkg_arch.stdout }}
       Signed-By: /etc/apt/keyrings/docker.asc
 
 - name: Update apt cache after adding Docker repo
@@ -96,18 +96,18 @@
 
 - name: Run Rootless install script
   become: true
-  become_user: "{{ service_user }}"
+  become_user: "{{ docker_rootless_service_user }}"
   ansible.builtin.command:
     cmd: "dockerd-rootless-setuptool.sh install"
-    creates: "{{ service_user_info.home }}/.local/share/docker"
+    creates: "{{ docker_rootless_service_user_info.home }}/.local/share/docker"
 
 - name: Configure env variables in .bashrc
   become: true
-  become_user: "{{ service_user }}"
+  become_user: "{{ docker_rootless_service_user }}"
   ansible.builtin.blockinfile:
-    path: "{{ service_user_info.home }}/.bashrc"
+    path: "{{ docker_rootless_service_user_info.home }}/.bashrc"
     marker: "# Ansible managed block Docker rootless"
     block: |
       export PATH=/usr/bin:$PATH
-      export DOCKER_HOST=unix:///run/user/{{ service_user_info.uid
+      export DOCKER_HOST=unix:///run/user/{{ docker_rootless_service_user_info.uid
         }}/docker.sock

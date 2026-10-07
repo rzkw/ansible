@@ -1,41 +1,40 @@
 ---
 - name: Provision OCI Devbox
+  hosts: nodes
   become: true
-
-
   tasks:
     # ── Hostname ───────────────────────────────────────────
     - name: Set hostname
-      hostname:
+      ansible.builtin.hostname:
         name: dev-box
 
     # ── Tailscale Exit Node ────────────────────────────────
     - name: Advertise as Tailscale exit node
-      shell: tailscale set --advertise-exit-node
+      ansible.builtin.command: tailscale set --advertise-exit-node
       changed_when: false
 
     # ── Rsync Backup (systemd timer + service) ────────────
     - name: Deploy rsync-backup script
-      template:
+      ansible.builtin.template:
         src: rsync-backup.sh.j2
         dest: /usr/local/bin/rsync-backup.sh
-        mode: 0755
+        mode: "0755"
 
     - name: Deploy rsync-backup systemd service
-      template:
+      ansible.builtin.template:
         src: rsync-backup.service.j2
         dest: /etc/systemd/system/rsync-backup.service
-        mode: 0644
+        mode: "0644"
 
     - name: Deploy rsync-backup systemd timer
-      template:
+      ansible.builtin.template:
         src: rsync-backup.timer.j2
         dest: /etc/systemd/system/rsync-backup.timer
-        mode: 0644
+        mode: "0644"
 
     - name: Enable and start rsync-backup timer
-      systemd:
+      ansible.builtin.systemd:
         name: rsync-backup.timer
-        enabled: yes
+        enabled: true
         state: started
-        daemon_reload: yes
+        daemon_reload: true

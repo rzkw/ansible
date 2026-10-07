@@ -20,11 +20,12 @@ Standard Ansible layout with a single inventory and roles under `roles/`.
 ansible.cfg             # global config
 hosts.ini               # single inventory ([local], [nodes])
 group_vars/
-  all/vars.yml          # SSH port 5678, vault password template
-  all/vault.yml         # encrypted vault (gitignored)
+  all/vars.yml          # non-secret SSH defaults
+  all/cis.yml           # Ubuntu 24 CIS role overrides
   local/vars.yml        # ansible_connection: local
 playbooks/              # all playbooks here
 roles/
+  dev_box/               # dev-box packages, Tailscale, and Docker setup
   docker_rootless/      # Docker Engine rootless mode
 templates/              # chrony.conf.j2
 ```
@@ -37,21 +38,21 @@ templates/              # chrony.conf.j2
 | interpreter_python | `auto_silent` |
 | forks | 25 |
 
-Custom SSH port `5678` is set in `group_vars/all/vars.yml`. User name is templated from vault.
+SSH uses port `22`; remote usernames and key paths are set by inventory.
 
-## Secrets
+## Cloud-init provisioning
 
-- `group_vars/all/vault.yml` is gitignored. Vault variables are loaded automatically via group_vars.
-- Run with `--ask-vault-pass` or configure `ANSIBLE_VAULT_PASSWORD_FILE`.
-- `ansible_password` is never stored in plaintext — always templated from vault.
+- `playbooks/server.yml` runs locally as root from cloud-init and must not prompt, pause, or ask for credentials.
+- Cloud-init installs the collections in `collections/requirements.yml` before invoking the playbook.
+- The Tailscale authentication key comes from authenticated OCI instance metadata; do not print it in task output.
+- SSH uses public-key authentication for `ubuntu`, `rizky`, and `agent-walkllc`; password authentication is disabled.
 
 ## Running playbooks
 
 ```sh
-# all playbooks live under playbooks/
-ansible-playbook playbooks/ping.yml
-ansible-playbook playbooks/playbook.yml                   # install packages
-ansible-playbook playbooks/docker_rootless.yml           # rootless Docker Engine
+ansible-galaxy collection install -r collections/requirements.yml
+ansible-playbook -i hosts.ini playbooks/server.yml --syntax-check
+ansible-playbook -i hosts.ini playbooks/ping.yml
 ```
 
 ## Style rules — enforced
