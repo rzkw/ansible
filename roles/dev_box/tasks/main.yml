@@ -1,0 +1,112 @@
+---
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install system packages
+  ansible.builtin.apt:
+    name:
+      - git
+      - python3
+      - python3-pip
+      - pipx
+      - nodejs
+      - npm
+      - tmux
+      - wget
+      - ufw
+      - fail2ban
+    state: present
+
+- name: Add GitHub CLI GPG key
+  ansible.builtin.apt_key:
+    url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
+    state: present
+
+- name: Add GitHub CLI repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main"
+    state: present
+
+- name: Install GitHub CLI
+  ansible.builtin.apt:
+    name: gh
+    state: present
+
+- name: Install OCI CLI via pipx
+  community.general.pipx:
+    name: oci-cli
+    state: present
+  become_user: ubuntu
+  become: true
+
+- name: Add HashiCorp GPG key
+  ansible.builtin.apt_key:
+    url: https://apt.releases.hashicorp.com/gpg
+    state: present
+
+- name: Add HashiCorp repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com {{ ansible_distribution_release }} main"
+    state: present
+
+- name: Install terraform
+  ansible.builtin.apt:
+    name: terraform
+    state: present
+
+- name: Add Tailscale GPG key
+  ansible.builtin.apt_key:
+    url: https://pkgs.tailscale.com/stable/ubuntu/{{ ansible_distribution_release }}.noarmor.gpg
+    state: present
+
+- name: Add Tailscale repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/ubuntu {{ ansible_distribution_release }} main"
+    state: present
+
+- name: Install Tailscale
+  ansible.builtin.apt:
+    name: tailscale
+    state: present
+
+- name: Read Tailscale auth key from OCI metadata
+  ansible.builtin.uri:
+    url: http://169.254.169.254/opc/v2/instance/metadata/tailscale_auth_key
+    headers:
+      Authorization: Bearer Oracle
+    return_content: true
+    status_code: 200
+  register: dev_box_ts_meta
+  failed_when: false
+  no_log: true
+
+- name: Require Tailscale auth key
+  ansible.builtin.assert:
+    that:
+      - dev_box_ts_meta.status | default(0) == 200
+      - dev_box_ts_meta.content | default("", true) | trim | length > 0
+    fail_msg: OCI metadata must provide tailscale_auth_key.
+
+- name: Connect to Tailscale with OpenSSH handling TCP/22
+  ansible.builtin.shell: tailscale up --ssh=false --auth-key="${TS_AUTH_KEY}" # noqa command-instead-of-shell
+  environment:
+    TS_AUTH_KEY: "{{ dev_box_ts_meta.content | trim }}"
+  changed_when: false
+  no_log: true
+
+- name: Install OpenCode CLI via npm
+  community.general.npm:
+    name: "@opencode/cli"
+    global: true
+    state: present
+
+- name: Configure rootless Docker
+  ansible.builtin.include_role:
+    name: docker_rootless
+    apply:
+      tags: [level1-server]
+  vars:
+    docker_rootless_service_user: ubuntu
+  tags: [level1-server]

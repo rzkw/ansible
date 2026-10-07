@@ -7,6 +7,8 @@ ubtu24cis_disruption_high: false
 ubtu24cis_firewall_package: ufw
 ubtu24cis_sshd_permit_root_login: false
 ubtu24cis_sshd_password_auth: false
-ubtu24cis_ssh_allow_users: "{{ ansible_user }}"
-run_audit: false
-setup_audit: false
+ubtu24cis_sshd_allow_users: "ubuntu rizky agent-walkllc"
+# UFW is configured with explicit Bastion/Tailscale rules after provisioning.
+ubtu24cis_rule_4_2_3: false
+run_audit: true
+setup_audit: true
